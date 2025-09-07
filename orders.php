@@ -28,8 +28,8 @@ function sendOrderEmail($toEmail, $toName, $subject, $payment, $orders, $statusM
         $mail->isSMTP();
         $mail->Host = 'smtp.gmail.com';
         $mail->SMTPAuth = true;
-        $mail->Username = 'varahibusbooking@gmail.com';
-        $mail->Password = 'pjhg nwnt haac nsiu';
+        $mail->Username = 'your email';
+        $mail->Password = '';
         $mail->SMTPSecure = 'tls';
         $mail->Port = 587;
 
