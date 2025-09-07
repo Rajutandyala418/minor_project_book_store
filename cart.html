@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopping Cart</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/books-data.js" defer></script>
+  <script src="js/app.js" defer></script>
+  <style>
+    #dashboardBtn {
+      background: #FFD700;
+      border: none;
+      padding: 1rem 1rem;
+      font-size: 1.5rem;
+      font-weight: bold;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    #dashboardBtn:hover {
+      background: #e6c200;
+      transform: scale(1.05);
+    }
+    .select-all-container {
+      margin: 1rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .select-all-container input[type="checkbox"] {
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+      accent-color: #FFD700;
+    }
+    .select-all-container label {
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 1.5rem;
+      color: white;
+      transition: color 0.3s;
+    }
+    .select-all-container label:hover {
+      color: yellow;
+    }
+#cartItems input[type="checkbox"] {
+  transform: scale(1.6); /* 1.6x bigger */
+  cursor: pointer;
+  accent-color: #FFD700;
+  margin: 4px; /* add spacing so bigger checkboxes don’t overlap text */
+}
+
+  </style>
+</head>
+<body>
+<header class="header"> 
+  <button class="dashboard-btn" id="dashboardBtn">🏠 Dashboard</button>
+  <div class="logo" id="logoBtn">📚 BookStore</div>
+</header>
+
+<main class="page active">
+  <div class="page-header">
+    <h1 class="page-title">Shopping Cart</h1>
+    <p class="page-subtitle">Select books to proceed with payment</p>
+  </div>
+
+
+
+  <div id="cartItems"></div>
+
+  <div class="cart-total">
+    <h3>Total: $<span id="totalAmount">0.00</span></h3>
+    <button class="btn btn-primary" onclick="proceedToPayment()">Proceed to Payment</button>
+  </div>
+</main>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const urlParams = new URLSearchParams(window.location.search);
+  const username = urlParams.get("username");
+
+  function goToDashboard() {
+    window.location.href = username 
+      ? `dashboard.html?username=${encodeURIComponent(username)}`
+      : "dashboard.html";
+  }
+  document.getElementById("dashboardBtn").addEventListener("click", goToDashboard);
+  document.getElementById("logoBtn").addEventListener("click", goToDashboard);
+
+  // ✅ Save and load selections
+  function saveSelections() {
+    const selectedIds = [];
+    document.querySelectorAll(".row-checkbox:checked").forEach(cb => {
+      const tr = cb.closest("tr");
+      selectedIds.push(tr.getAttribute("data-book-id"));
+    });
+    localStorage.setItem("selectedBooks", JSON.stringify(selectedIds));
+  }
+
+  function loadSelections() {
+    const selectedIds = JSON.parse(localStorage.getItem("selectedBooks") || "[]");
+    document.querySelectorAll(".row-checkbox").forEach(cb => {
+      const tr = cb.closest("tr");
+      cb.checked = selectedIds.includes(tr.getAttribute("data-book-id"));
+    });
+  }
+
+  // ✅ Fetch and render cart
+  function loadCart() {
+    fetch(`get_cart.php?username=${encodeURIComponent(username)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          renderCart(data.items);
+        } else {
+          document.getElementById("cartItems").innerHTML = `<p>${data.message}</p>`;
+        }
+      });
+  }
+
+  function renderCart(items) {
+    const container = document.getElementById("cartItems");
+    container.innerHTML = "";
+
+    if (items.length === 0) {
+      container.innerHTML = "<p>No items in cart</p>";
+      document.getElementById("totalAmount").innerText = "0.00";
+      return;
+    }
+
+    // ✅ Group by book_id
+    const grouped = {};
+    items.forEach(item => {
+      if (!grouped[item.book_id]) {
+        grouped[item.book_id] = { ...item, count: 0, cart_ids: [] };
+      }
+      grouped[item.book_id].count++;
+      grouped[item.book_id].cart_ids.push(item.cart_id);
+    });
+
+    const table = document.createElement("table");
+    table.border = "1";
+    table.cellPadding = "10";
+    table.style.width = "100%";
+    table.style.borderCollapse = "collapse";
+    table.innerHTML = `
+      <thead>
+        <tr style="background:#FFD700; color:#000; text-align:left;">
+          <th><input type="checkbox" id="selectAllTable"> Select All</th>
+          <th>No. of Books</th>
+          <th>Book ID</th>
+          <th>Book Name</th>
+          <th>Author</th>
+          <th>Price (₹)</th>
+          <th>Pages</th>
+          <th>Year</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+    const tbody = table.querySelector("tbody");
+
+    Object.values(grouped).forEach(item => {
+      const tr = document.createElement("tr");
+      tr.setAttribute("data-book-id", item.book_id);
+      tr.setAttribute("data-cart-ids", JSON.stringify(item.cart_ids));
+
+      tr.innerHTML = `
+        <td><input type="checkbox" class="row-checkbox"></td>
+        <td class="count-cell">${item.count}</td>
+        <td>${item.book_id}</td>
+        <td>${item.book_name}</td>
+        <td>${item.author}</td>
+        <td class="price-cell">${item.price}</td>
+        <td>${item.pages}</td>
+        <td>${item.year}</td>
+        <td>
+          <button class="btn-inc">➕</button>
+          <button class="btn-dec">➖</button>
+        </td>
+      `;
+
+      tbody.appendChild(tr);
+    });
+
+    container.appendChild(table);
+
+    // ✅ Checkbox + total handling
+    const totalAmountEl = document.getElementById("totalAmount");
+
+    function updateTotal() {
+      let total = 0;
+      document.querySelectorAll(".row-checkbox:checked").forEach(cb => {
+        const tr = cb.closest("tr");
+        const price = parseFloat(tr.querySelector(".price-cell").innerText);
+        const count = parseInt(tr.querySelector(".count-cell").innerText);
+        total += price * count;
+      });
+      totalAmountEl.innerText = total.toFixed(2);
+    }
+
+    // Restore previous selections
+    loadSelections();
+    updateTotal();
+
+    document.querySelectorAll(".row-checkbox").forEach(cb => {
+      cb.addEventListener("change", () => {
+        updateTotal();
+        saveSelections();
+      });
+    });
+
+    document.getElementById("selectAllTable").addEventListener("change", function () {
+      const checked = this.checked;
+      document.querySelectorAll(".row-checkbox").forEach(cb => cb.checked = checked);
+      updateTotal();
+      saveSelections();
+    });
+
+    // ✅ Instant increment / decrement
+    tbody.querySelectorAll(".btn-inc").forEach(btn => {
+    // ➕ increment
+btn.addEventListener("click", function () {
+  const tr = this.closest("tr");
+  const cartIds = JSON.parse(tr.getAttribute("data-cart-ids"));
+  const anyCartId = cartIds[0];
+
+  // ✅ Optimistically update UI
+  const countCell = tr.querySelector(".count-cell");
+  countCell.innerText = parseInt(countCell.innerText) + 1;
+  updateTotal();
+
+  fetch("add_copy.php", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cart_id: anyCartId })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      // ✅ Add new cart_id returned by backend
+      const cartIds = JSON.parse(tr.getAttribute("data-cart-ids"));
+      cartIds.push(data.cart_id);
+      tr.setAttribute("data-cart-ids", JSON.stringify(cartIds));
+    } else {
+      // ❌ Revert on failure
+      countCell.innerText = parseInt(countCell.innerText) - 1;
+      updateTotal();
+      alert(data.message || "Failed to add copy");
+    }
+  });
+});
+
+    });
+
+tbody.querySelectorAll(".btn-dec").forEach(btn => {
+  btn.addEventListener("click", function () {
+    const tr = this.closest("tr");
+    const cartIds = JSON.parse(tr.getAttribute("data-cart-ids"));
+    if (cartIds.length === 0) return;
+
+    const lastCartId = cartIds.pop();
+    tr.setAttribute("data-cart-ids", JSON.stringify(cartIds));
+
+    // ✅ Optimistic update
+    const countCell = tr.querySelector(".count-cell");
+    let newCount = parseInt(countCell.innerText) - 1;
+    if (newCount <= 0) {
+      tr.remove();
+    } else {
+      countCell.innerText = newCount;
+    }
+    updateTotal();
+
+    fetch("remove_copy.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cart_id: lastCartId })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (!data.success) {
+        alert(data.message || "Failed to remove copy");
+
+        // ❌ Revert this row only
+        cartIds.push(lastCartId); // put it back
+        tr.setAttribute("data-cart-ids", JSON.stringify(cartIds));
+
+        if (!document.body.contains(tr)) {
+          // row was removed, restore it (optional: reload cart if needed)
+          loadCart();
+        } else {
+          // just fix the count
+          const countCell = tr.querySelector(".count-cell");
+          countCell.innerText = parseInt(countCell.innerText) + 1;
+          updateTotal();
+        }
+      }
+    });
+  });
+});
+
+  }
+
+  // ✅ Proceed to Payment
+  window.proceedToPayment = function () {
+    const selectedBooks = [];
+    document.querySelectorAll(".row-checkbox:checked").forEach(cb => {
+      const tr = cb.closest("tr");
+      selectedBooks.push({
+        book_id: tr.getAttribute("data-book-id"),
+        book_name: tr.children[3].innerText,
+        author: tr.children[4].innerText,
+        price: parseFloat(tr.querySelector(".price-cell").innerText),
+        pages: tr.children[6].innerText,
+        year: tr.children[7].innerText,
+        quantity: parseInt(tr.querySelector(".count-cell").innerText)
+      });
+    });
+
+    if (selectedBooks.length === 0) {
+      alert("Please select at least one book!");
+      return;
+    }
+
+    const totalAmount = parseFloat(document.getElementById("totalAmount").innerText);
+
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = "payment.php";
+
+    form.innerHTML = `
+      <input type="hidden" name="cart_total" value="${totalAmount.toFixed(2)}">
+      <input type="hidden" name="books" value='${JSON.stringify(selectedBooks)}'>
+      <input type="hidden" name="username" value="${username || ""}">
+    `;
+
+    document.body.appendChild(form);
+    form.submit();
+  };
+
+  loadCart();
+});
+</script>
+
+
+</body>
+</html>

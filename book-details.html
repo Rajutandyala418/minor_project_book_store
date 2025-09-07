@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Details</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/books-data.js" defer></script>
+    <script src="js/app.js" defer></script>
+
+    <style>
+        /* Cart Icon + Text */
+        .cart-icon {
+            display: flex;
+            align-items: center;
+            font-size: 2.2rem;
+            cursor: pointer;
+            font-weight: bold;
+            color: #fff;
+            margin-left: auto;
+            position: relative;
+            transition: transform 0.2s ease;
+        }
+        .cart-icon:hover { transform: scale(1.1); }
+
+        /* Cart count badge */
+        .cart-count {
+            background: red;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 50%;
+            margin-left: 6px;
+            position: absolute;
+            top: -8px;
+            right: -12px;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.8rem 1rem;
+            background: #222;
+            color: #fff;
+        }
+
+        /* Back Button */
+        .back-btn {
+            background: #FFD700;
+            color: #000;
+            border: none;
+            padding: 1.5rem 2rem;
+            border-radius: 6px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 1rem;
+        }
+        .back-btn:hover {
+            background: #e6c200;
+            transform: scale(1.05);
+        }
+
+        /* Logo */
+        .logo {
+            font-size: 1.6rem;
+            font-weight: bold;
+            cursor: pointer;
+            color: #FFD700;
+            text-align: center;
+            flex: 1;
+            transition: transform 0.3s ease, color 0.3s ease;
+        }
+        .logo:hover { transform: scale(1.1); color: #e6c200; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <button class="back-btn" id="backBtn">← Back</button>
+        <div class="logo" id="logoBtn">📚 BookStore</div>
+        <div class="cart-icon" id="cartBtn">
+            🛒 Cart <span class="cart-count" id="cartCount">0</span>
+        </div>
+    </header>
+
+    <main class="page active">
+        <div class="book-details" id="bookDetailsContent"></div>
+    </main>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const bookId = parseInt(urlParams.get('id'));
+    const category = urlParams.get('cat');
+    const username = urlParams.get('username');
+    const cartCountElem = document.getElementById("cartCount");
+
+    let book = null;
+    if (category && booksData[category]) {
+        book = booksData[category].find(b => b.id === bookId);
+    }
+
+    if (!book) {
+        document.getElementById('bookDetailsContent').innerHTML = "<h2>Book not found</h2>";
+        return;
+    }
+
+    // ✅ Render book details
+    document.getElementById('bookDetailsContent').innerHTML = `
+        <div class="book-details-content">
+            <div class="book-cover-large" style="background-image:url('${book.image}')"></div>
+            <div class="book-info">
+                <h2>${book.title}</h2>
+                <p><strong>Author:</strong> ${book.author}</p>
+                <p><strong>Year:</strong> ${book.year}</p>
+                <p><strong>Pages:</strong> ${book.pages}</p>
+                <p><strong>Price:</strong> ₹${book.price}</p>
+                <p><strong>Description:</strong> ${book.description}</p>
+                <div style="margin-top: 2rem;">
+                    <button class="btn btn-primary" onclick="addToCart(${book.id}, '${category}')">Add to Cart</button>
+                                   </div>
+            </div>
+        </div>
+    `;
+
+    // ✅ Fetch cart count from DB
+    function updateCartCount() {
+        if (!username) return;
+        fetch(`get_cart_count.php?username=${encodeURIComponent(username)}`)
+            .then(res => res.json())
+            .then(data => {
+                cartCountElem.innerText = data.status === "success" ? data.count : "0";
+            })
+            .catch(err => {
+                console.error("Cart count fetch error:", err);
+                cartCountElem.innerText = "0";
+            });
+    }
+
+    // ✅ Back button → category.html
+    document.getElementById("backBtn").addEventListener("click", function() {
+        if (category && username) {
+            window.location.href = `category.html?cat=${encodeURIComponent(category)}&username=${encodeURIComponent(username)}`;
+        } else if (category) {
+            window.location.href = `category.html?cat=${encodeURIComponent(category)}`;
+        } else {
+            window.history.back();
+        }
+    });
+
+    // ✅ Logo → dashboard.html
+    document.getElementById("logoBtn").addEventListener("click", function() {
+        window.location.href = username
+            ? `dashboard.html?username=${encodeURIComponent(username)}`
+            : "dashboard.html";
+    });
+
+    // ✅ Cart → cart.html
+    document.getElementById("cartBtn").addEventListener("click", function() {
+        window.location.href = username
+            ? `cart.html?username=${encodeURIComponent(username)}`
+            : "cart.html";
+    });
+
+    // ✅ Add to Cart function (DB + refresh count)
+    window.addToCart = function(bookId, category) {
+        if (!username) {
+            alert("You must be logged in to add items to cart!");
+            return;
+        }
+
+        const selectedBook = booksData[category]?.find(b => b.id === bookId);
+        if (!selectedBook) {
+            alert("Book not found!");
+            return;
+        }
+
+        fetch("add_to_cart.php", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                username: username,
+                category: category,
+                book_name: selectedBook.title,
+                author: selectedBook.author,
+                price: selectedBook.price,
+                year: selectedBook.year,
+                pages: selectedBook.pages
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                setTimeout(updateCartCount, 300);
+                alert("✅ Book added to cart!");
+            } else {
+                alert("❌ Error: " + data.message);
+            }
+        })
+        .catch(err => console.error("Error:", err));
+    };
+
+    // ✅ Buy Now function → payment.php
+    window.buyNow = function(bookId, category) {
+        const selectedBook = booksData[category]?.find(b => b.id === bookId);
+        if (!selectedBook) {
+            alert("Book not found!");
+            return;
+        }
+
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = "payment.php";
+
+        const fields = {
+            username: username || "",
+            title: selectedBook.title,
+            author: selectedBook.author,
+            year: selectedBook.year,
+            pages: selectedBook.pages,
+            price: selectedBook.price
+        };
+
+        for (const key in fields) {
+            const input = document.createElement("input");
+            input.type = "hidden";
+            input.name = key;
+            input.value = fields[key];
+            form.appendChild(input);
+        }
+
+        document.body.appendChild(form);
+        form.submit();
+    };
+
+    // Initial cart count fetch
+    updateCartCount();
+});
+</script>
+
+</body>
+</html>
