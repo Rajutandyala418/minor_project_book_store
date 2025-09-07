@@ -194,8 +194,8 @@ function sendBookEmail($toEmail, $toName, $subject, $payment_id){
         $mail->isSMTP();
         $mail->Host       = 'smtp.gmail.com';
         $mail->SMTPAuth   = true;
-        $mail->Username   = 'varahibusbooking@gmail.com';
-        $mail->Password   = 'pjhg nwnt haac nsiu';
+        $mail->Username   = 'your email';
+        $mail->Password   = 'your password';
         $mail->SMTPSecure = 'tls';
         $mail->Port       = 587;
 
