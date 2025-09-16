@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BookStore - Category</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  
+  <script src="js/books-data.js"></script>
+  <script src="js/app.js" defer></script>
+
+  <style>
+    .books-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.5rem;
+      padding: 2rem;
+      max-width: 1500px;
+      margin: 0 auto;
+    }
+    .book-card {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 1rem;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .book-title {
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+    .book-author {
+      font-size: 1rem;
+      color: #ccc;
+      margin-bottom: 0.5rem;
+    }
+    .book-price {
+      font-size: 1.1rem;
+      color: #FFD700;
+      margin-bottom: 1rem;
+    }
+    .btn {
+      display: inline-block;
+      padding: 0.4rem 0.8rem;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 0.2rem;
+      font-size: 0.9rem;
+    }
+    .btn-primary {
+      background: #4CAF50;
+      color: white;
+    }
+    .btn-secondary {
+      background: #FFD700;
+      color: black;
+    }
+    .cart-icon {
+      cursor: pointer;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .cart-count {
+      background: red;
+      color: white;
+      border-radius: 50%;
+      padding: 2px 6px;
+      font-size: 0.8rem;
+      margin-left: 4px;
+    }
+/* Back Button / Dashboard Button */
+.back-btn {
+    background: #FFD700;
+    color: #000;
+    border: none;
+    padding: 1.5rem 2rem;
+    border-radius: 6px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-right: 1rem;
+}
+/* Header Logo */
+.logo {
+    font-size: 1.6rem;
+    font-weight: bold;
+    cursor: pointer;
+    color: #FFD700;
+    text-align: center;
+    flex: 1; /* takes equal space so it centers */
+    transition: transform 0.3s ease, color 0.3s ease;
+}
+
+/* Hover Effect */
+.logo:hover {
+    transform: scale(1.1);
+    color: #e6c200;
+}
+
+/* To keep header items aligned */
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* back-btn left, logo center, cart right */
+    padding: 0.8rem 1rem;
+    background: #222;
+    color: #fff;
+}
+
+.back-btn:hover {
+    background: #e6c200;
+    transform: scale(1.05);
+}
+/* Cart Icon + Text */
+.cart-icon {
+    display: flex;
+    align-items: center;
+    font-size: 2.2rem;
+    cursor: pointer;
+    font-weight: bold;
+    color: #fff;
+    margin-left: auto; /* pushes it to the right */
+    position: relative;
+    transition: transform 0.2s ease;
+}
+
+.cart-icon:hover {
+    transform: scale(1.1);
+}
+
+/* Cart count badge */
+.cart-count {
+    background: red;
+    color: white;
+    font-size: 0.8rem;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 50%;
+    margin-left: 6px;
+    position: absolute;
+    top: -8px;
+    right: -12px;
+}
+
+  </style>
+</head>
+<body>
+  <header class="header">
+    <button class="back-btn" id="backBtn">← Back</button>
+    <div class="logo" id="logoBtn">📚 BookStore</div>
+    <div class="cart-icon" id="cartBtn">
+      🛒 Cart <span class="cart-count" id="cartCount">0</span>
+    </div>
+  </header>
+
+  <main class="page active">
+    <div class="page-header">
+      <h1 class="page-title" id="categoryTitle">Category Books</h1>
+      <p class="page-subtitle" id="categorySubtitle">Choose your next favorite book</p>
+    </div>
+    
+    <div class="books-grid" id="booksGrid"></div>
+  </main>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    const params = new URLSearchParams(window.location.search);
+    const category = params.get('cat');
+    const username = params.get('username');
+    const categoryTitle = document.getElementById('categoryTitle');
+    const categorySubtitle = document.getElementById('categorySubtitle');
+    const booksGrid = document.getElementById('booksGrid');
+    const cartCountElem = document.getElementById("cartCount");
+
+    // 🔥 Function to fetch cart count from DB (relative path)
+    function updateCartCount() {
+      if (!username) return;
+      fetch(`get_cart_count.php?username=${encodeURIComponent(username)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === "success") {
+            cartCountElem.innerText = data.count;
+          } else {
+            cartCountElem.innerText = "0";
+          }
+        })
+        .catch(err => {
+          console.error("Cart count fetch error:", err);
+          cartCountElem.innerText = "0";
+        });
+    }
+
+    // Back button → dashboard
+    document.getElementById("backBtn").addEventListener("click", function() {
+      if (username) {
+        window.location.href = `dashboard.html?username=${encodeURIComponent(username)}`;
+      } else {
+        window.location.href = "dashboard.html";
+      }
+    });
+
+    // Logo → dashboard
+    document.getElementById("logoBtn").addEventListener("click", function() {
+      if (username) {
+        window.location.href = `dashboard.html?username=${encodeURIComponent(username)}`;
+      } else {
+        window.location.href = "dashboard.html";
+      }
+    });
+
+    // Cart icon → cart page
+    document.getElementById("cartBtn").addEventListener("click", function() {
+      if (username) {
+        window.location.href = `cart.html?username=${encodeURIComponent(username)}`;
+      } else {
+        window.location.href = "cart.html";
+      }
+    });
+
+    // Ensure booksData is globally available
+    const data = window.booksData || booksData;
+
+    if (!category || !data[category]) {
+      categoryTitle.innerText = "Category Not Found";
+      categorySubtitle.innerText = "";
+      return;
+    }
+
+    const formattedCategory = category
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, l => l.toUpperCase());
+
+    categoryTitle.innerText = `${formattedCategory} Books`;
+    categorySubtitle.innerText = `Explore amazing ${formattedCategory} books`;
+
+    // ✅ Auto-assign unique ID if missing or 0
+    data[category].forEach((book, index) => {
+      if (!book.id || book.id === 0) {
+        book.id = index + 1;
+      }
+
+      const bookCard = document.createElement('div');
+      bookCard.classList.add('book-card');
+      bookCard.innerHTML = `
+        <div class="book-title">${book.title}</div>
+        <div class="book-author">by ${book.author}</div>
+        <div class="book-price">₹${book.price}</div>
+        <button class="btn btn-primary" onclick="viewBook(${book.id}, '${category}')">View Details</button>
+        <button class="btn btn-secondary" onclick="addToCartFromCategory(${book.id}, '${category}')">Add to Cart</button>
+      `;
+      booksGrid.appendChild(bookCard);
+    });
+
+    // View Book → relative path
+    window.viewBook = function(bookId, category) {
+      if (username) {
+        window.location.href = `book-details.html?id=${bookId}&cat=${category}&username=${encodeURIComponent(username)}`;
+      } else {
+        window.location.href = `book-details.html?id=${bookId}&cat=${category}`;
+      }
+    }
+
+    // 🔥 Add to Cart function (relative path)
+    window.addToCartFromCategory = function(bookId, category) {
+      if (!username) {
+        alert("You must be logged in to add items to cart!");
+        return;
+      }
+
+      const book = data[category].find(b => b.id === bookId);
+
+      if (!book) {
+        alert("Book not found!");
+        return;
+      }
+
+      fetch("add_to_cart.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: username,
+          category: category,
+          book_name: book.title,
+          author: book.author,
+          price: book.price,
+          year: book.year,
+          pages: book.pages
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setTimeout(updateCartCount, 300); // small delay for DB update
+          alert("Book added to cart!");
+        } else {
+          alert("Error: " + data.message);
+        }
+      })
+      .catch(err => console.error("Error:", err));
+    }
+
+    // 🔥 Fetch initial cart count on load
+    updateCartCount();
+  });
+</script>
+
+
+</body>
+</html>
